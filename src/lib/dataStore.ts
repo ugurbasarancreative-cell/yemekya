@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 // Central Data Store for YemekYa Platform
 // This file manages all platform data with LocalStorage persistence 
@@ -267,6 +267,10 @@ export class DataStore {
 
     // --- RESTAURANTS ---
     async getRestaurants(): Promise<Restaurant[]> {
+        if (!isSupabaseConfigured) {
+            return this.getItem<Restaurant>(this.KEYS.RESTAURANTS);
+        }
+
         try {
             const { data, error } = await supabase
                 .from('restaurants')
@@ -280,7 +284,7 @@ export class DataStore {
                 return data as Restaurant[];
             }
         } catch (err) {
-            // Sessizce fallback'e geç
+            console.error("DataStore: getRestaurants failed", err);
         }
         return this.getItem<Restaurant>(this.KEYS.RESTAURANTS);
     }
@@ -325,14 +329,16 @@ export class DataStore {
             ...restaurant,
         } as Restaurant;
 
-        try {
-            const { error } = await supabase
-                .from('restaurants')
-                .insert([newRestaurant]);
+        if (isSupabaseConfigured) {
+            try {
+                const { error } = await supabase
+                    .from('restaurants')
+                    .insert([newRestaurant]);
 
-            if (error) throw error;
-        } catch (err) {
-            console.error('Supabase addRestaurant error:', err);
+                if (error) throw error;
+            } catch (err) {
+                console.error('DataStore: addRestaurant database error:', err);
+            }
         }
 
         const all = await this.getRestaurants();
