@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import DataStore, { Order } from '@/lib/dataStore';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 export default function AdminDashboard() {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -478,6 +479,19 @@ export default function AdminDashboard() {
                             </div>
                         ))}
                     </div>
+                </div>
+            </div>
+
+            {/* DB STATUS INDICATOR */}
+            <div className="fixed bottom-6 right-6 z-[9999]">
+                <div className={`px-6 py-3 rounded-2xl border text-[11px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-xl flex items-center gap-4 transition-all duration-500 scale-100 hover:scale-105 ${isSupabaseConfigured ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-rose-500/10 border-rose-500/20 text-rose-500 animate-pulse'}`}>
+                    <div className="relative">
+                        <div className={`w-3 h-3 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.7)]' : 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.7)]'}`}></div>
+                        {!isSupabaseConfigured && <div className="absolute inset-0 w-3 h-3 rounded-full bg-rose-500 animate-ping"></div>}
+                    </div>
+                    <span>
+                        BAĞLANTI: {isSupabaseConfigured ? 'SUPABASE BULUT (AKTİF)' : 'YEREL BELLEK (PASİF)'}
+                    </span>
                 </div>
             </div>
 
