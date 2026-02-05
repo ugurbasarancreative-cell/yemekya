@@ -170,10 +170,17 @@ export default function Home() {
   };
 
   const isRestaurantOpen = useCallback((openTime: string | number | undefined, closeTime: string | number | undefined, id: string) => {
+    // Build sırasında (Node.js ortamında) localStorage erişimini engelle
+    if (typeof window === 'undefined') return true;
+
     // 1. Manuel durum kontrolü (LocalStorage)
     const stored = localStorage.getItem(`yemekya_restaurant_status_${id}`);
     if (stored) {
-      return JSON.parse(stored).isOpen;
+      try {
+        return JSON.parse(stored).isOpen;
+      } catch (e) {
+        return true;
+      }
     }
 
     // 2. Eğer saat bilgisi yoksa varsayılan olarak açık kabul et
