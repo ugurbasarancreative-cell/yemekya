@@ -308,12 +308,11 @@ export class DataStore {
     }
 
     async addRestaurant(restaurant: Partial<Restaurant>): Promise<string | null> {
-        // Supabase schema (uuid and snake_case) mapping
         const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
-        let id = restaurant.id || (Math.random().toString(36).substr(2, 9));
+        let targetId = restaurant.id || (Math.random().toString(36).substr(2, 9));
 
-        const dbRestaurant = {
+        const dbData: any = {
             name: restaurant.name || '',
             tags: restaurant.tags || [],
             rating: Number(restaurant.rating) || 0,
@@ -330,30 +329,29 @@ export class DataStore {
             menu: restaurant.menu || []
         };
 
-        let dbId = id;
+        let finalId = targetId;
 
         if (isSupabaseConfigured) {
             try {
-                // Eğer ID geçerli bir UUID değilse Supabase'in oluşturmasına izin ver
-                const insertData = isUUID(id) ? { id, ...dbRestaurant } : dbRestaurant;
+                const insertPayload = isUUID(targetId) ? { id: targetId, ...dbData } : dbData;
 
                 const { data, error } = await supabase
                     .from('restaurants')
-                    .insert([insertData])
+                    .insert([insertPayload])
                     .select();
 
                 if (error) throw error;
                 if (data && data[0]) {
-                    dbId = data[0].id; // Gerçek UUID
+                    finalId = data[0].id;
                 }
             } catch (err) {
-                console.error('DataStore: CRITICAL DB ERROR:', err);
+                console.error('DataStore: DB Insert Error:', err);
             }
         }
 
         const newRes: Restaurant = {
             ...restaurant,
-            id: dbId,
+            id: finalId,
             name: restaurant.name || '',
             tags: restaurant.tags || [],
             rating: restaurant.rating || 0,
@@ -371,15 +369,15 @@ export class DataStore {
         } as Restaurant;
 
         const all = await this.getRestaurants();
-        const exists = all.findIndex(r => r.id === dbId);
-        if (exists === -1) {
+        const existsIdx = all.findIndex(r => r.id === finalId);
+        if (existsIdx === -1) {
             all.push(newRes);
         } else {
-            all[exists] = { ...all[exists], ...newRes };
+            all[existsIdx] = { ...all[existsIdx], ...newRes };
         }
         this.setItem(this.KEYS.RESTAURANTS, all);
         window.dispatchEvent(new Event('restaurant-update'));
-        return dbId;
+        return finalId;
     }
 
     async updateRestaurant(id: string, updates: any): Promise<void> {
