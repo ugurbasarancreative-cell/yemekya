@@ -308,12 +308,55 @@ export class DataStore {
     }
 
     async addRestaurant(restaurant: Partial<Restaurant>): Promise<string | null> {
-        const id = restaurant.id || Math.random().toString(36).substr(2, 9);
-        const newRestaurant: Restaurant = {
-            id,
+        // Supabase schema (uuid and snake_case) mapping
+        const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+        let id = restaurant.id || (Math.random().toString(36).substr(2, 9));
+
+        const dbRestaurant = {
             name: restaurant.name || '',
             tags: restaurant.tags || [],
-            rating: restaurant.rating || '0.0',
+            rating: Number(restaurant.rating) || 0,
+            time: restaurant.time || '30-40 dk',
+            min_basket: restaurant.minBasket || 0,
+            img: restaurant.img || '🏪',
+            phone: restaurant.phone || '',
+            address: restaurant.address || '',
+            open_time: restaurant.openTime || '09:00',
+            close_time: restaurant.closeTime || '23:00',
+            status: restaurant.status || 'closed',
+            commission: restaurant.commission || 15,
+            delivery_fee: restaurant.deliveryFee || 0,
+            menu: restaurant.menu || []
+        };
+
+        let dbId = id;
+
+        if (isSupabaseConfigured) {
+            try {
+                // Eğer ID geçerli bir UUID değilse Supabase'in oluşturmasına izin ver
+                const insertData = isUUID(id) ? { id, ...dbRestaurant } : dbRestaurant;
+
+                const { data, error } = await supabase
+                    .from('restaurants')
+                    .insert([insertData])
+                    .select();
+
+                if (error) throw error;
+                if (data && data[0]) {
+                    dbId = data[0].id; // Gerçek UUID
+                }
+            } catch (err) {
+                console.error('DataStore: CRITICAL DB ERROR:', err);
+            }
+        }
+
+        const newRes: Restaurant = {
+            ...restaurant,
+            id: dbId,
+            name: restaurant.name || '',
+            tags: restaurant.tags || [],
+            rating: restaurant.rating || 0,
             time: restaurant.time || '30-40 dk',
             minBasket: restaurant.minBasket || 0,
             img: restaurant.img || '🏪',
@@ -321,36 +364,22 @@ export class DataStore {
             address: restaurant.address || '',
             openTime: restaurant.openTime || 9,
             closeTime: restaurant.closeTime || 23,
-            status: (restaurant.status as 'open' | 'busy' | 'closed') || 'closed',
+            status: (restaurant.status as any) || 'closed',
             commission: restaurant.commission || 15,
             deliveryFee: restaurant.deliveryFee || 0,
-            menu: restaurant.menu || [],
-            joinedAt: new Date().toISOString().split('T')[0],
-            ...restaurant,
+            menu: restaurant.menu || []
         } as Restaurant;
 
-        if (isSupabaseConfigured) {
-            try {
-                const { error } = await supabase
-                    .from('restaurants')
-                    .insert([newRestaurant]);
-
-                if (error) throw error;
-            } catch (err) {
-                console.error('DataStore: addRestaurant database error:', err);
-            }
-        }
-
         const all = await this.getRestaurants();
-        const exists = all.findIndex(r => r.id === id);
+        const exists = all.findIndex(r => r.id === dbId);
         if (exists === -1) {
-            all.push(newRestaurant);
+            all.push(newRes);
         } else {
-            all[exists] = { ...all[exists], ...newRestaurant };
+            all[exists] = { ...all[exists], ...newRes };
         }
         this.setItem(this.KEYS.RESTAURANTS, all);
         window.dispatchEvent(new Event('restaurant-update'));
-        return id;
+        return dbId;
     }
 
     async updateRestaurant(id: string, updates: any): Promise<void> {
